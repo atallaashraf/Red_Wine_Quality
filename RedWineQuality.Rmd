@@ -1,0 +1,380 @@
+---
+title: "Red Wine Analysis"
+author: "Ashraf Atalla"
+date: "March 16, 2019"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+
+library("ggplot2")
+library("dplyr")
+library("reshape2")
+library("grid")
+library("purrr")
+library("tidyr")
+library("gridExtra")
+library("epade")
+library("lattice")
+library("latticeExtra")
+
+```
+
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+df = read.csv("wineQualityReds.csv")
+```
+# Introduction
+
+In this project, the red wine quality data is investigated and analyzed. The red wive data contains 1599 observations of the different wine chemical and sugar properties and its corresponding rating. The aim of this project is to shed some light on the main properties that affect the wine quality and provide an insight into the different relationships between the wine contents and quality.
+
+# Univariate Plots Section
+
+In this section, the dataframe is investigated. As shown below, the dataframe has 1599 observations and 13 variables (of which one variable represents the row id). Out of the remaining 12 variables, the quality of the wine appears to be the major characteristics of the wine and it varies from 3-8 with a median of 6. 
+
+```{r echo=FALSE,  fig.height = 4, fig.width = 8, fig.align = "center", Univariate_Plots_1}
+# get the structure and the summary of the dataframe
+str(df)
+
+summary(df)
+```
+
+## Red Wine Quality Distribution and Dependency
+When looking at the wine quality, most of the wine are rated at 5 or 6 (83%) while the rest are rated below 5 (4%) or above 6 (13%). The wine quality proportion was created by dividing the count of each quality level by the total observations. 
+
+```{r echo=FALSE,  fig.height = 4, fig.width = 8, fig.align = "center", Univariate_Plots_3}
+# get the proportion of each wine quality
+quality_prop = data.frame(round(table(df$quality)/nrow(df),2))
+names(quality_prop) = c("quality","proportion")
+
+# Plot the proportions
+ggplot(quality_prop, aes(x=quality,y=proportion)) + 
+  geom_col(color=I('black'), fill=I('#099DD9')) +
+  labs(x = "Wine Quality", y = "Proportion") +
+  ggtitle("Fig 1: The Proportion of Each Red Wine Quality") +
+  theme_bw()
+```
+
+```{r echo=FALSE,  fig.height = 4, fig.width = 8, fig.align = "center", Univariate_Plots_4}
+# get the distribution of the wine quality
+qplot(x=quality, data=df,
+      xlab = 'Wine Quality',
+      ylab = 'Number of Ratings',
+      color=I('black'), fill=I('#099DD9'), 
+      binwidth=1) +
+  theme_bw() +
+  ggtitle("Fig 2: Histogram of Red Wine Quality")
+```
+
+Toplot all the histograms, I employ `gather()` from the package, `tidyr`. `gather()` will convert a selection of columns into two columns: a key and a value. The key contains the names of the original columns, and the value contains the data held in the columns. If we don't specify any arguments for `gather()`, it will convert all columns in our data frame into key-value pairs. 
+
+The chart below shows the histograms for all the variables. Some wine properties shows a normal distribution such as the wine density and the pH value. However, most of the properties are showing a right skewed distribution.
+
+```{r echo=FALSE,  fig.height = 4, fig.width = 8, fig.align = "center", Univariate_Plots_5}
+# get the distribution of the wine quality
+df[,2:13] %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ key, scales = "free") +
+  geom_histogram(bins = 20) +
+  theme_bw() +
+  ggtitle("Fig 3: Histogram of Each Red Wine Property")
+
+```
+
+# Univariate Analysis
+
+> The following are the main outcomes of the Red Wine dataset univarient analysis:
+
+- **The structure of the dataset:** 1599 observations and 12 variables.
+- The wine quality of the wine appears to be the major characteristics of the wine and it varies from 3-8 with a median of 6.
+- The wine quality data shall be broken into levels for further analysis.
+- Some wine properties shows a normal distribution such as the wine density and the pH value. However, most of the properties are showing a right skewed distribution.
+
+# Bivariate Plots Section
+
+## Correlation Between Wine Quality and Wine Properties
+
+When looking at the correlation between the wine quality and the other 11 properties, alcohol and volatile acidity rise the main correlated properties to the wine quality.
+
+```{r echo=FALSE,  fig.height = 6, fig.width = 8, fig.align = "center", Bivariate_Plots_1}
+
+# get the correlation between quality and all other properties
+cor.matrix = data.frame(round(cor(df),2)[13,2:12])
+names(cor.matrix) = c("corr")
+
+# Plot correlation matrix
+ggplot(cor.matrix, aes(x=row.names(cor.matrix),y=corr)) + 
+  geom_col(color=I('black'), fill=I('#099DD9')) +
+  labs(x = "Wine Property", y = "Correlation Coefficient") +
+  ggtitle("Fig 4: Correlation of the Red Wine Quality with its Properties") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -90))
+
+```
+
+## Correlation Between the Different Wine Properties
+
+When looking at the correlation between the wine properties, many of these properties are highly correlated with others. The following is a summary:
+
+- Alcohol: strong -ve correlated with density which makes sense since alcohol is lighter in weight than the wine and higher alcohol will yield a lighter wine in general.
+
+- Citric acid is strongly +ve correlated to the fixed acid and -ve correlated to pH (higher acidic value means lower pH)
+
+- Free sulfur dioxide is strongly +ve correlated to total sulfer dioxide
+
+
+```{r echo=FALSE,  fig.height = 10, fig.width = 12, fig.align = "center", Bivariate_Plots_2}
+
+# get the correlation between all wine properties
+cor.matrix.all = data.frame(round(cor(df),2)[2:13,2:13])
+# names(cor.matrix.all) = c("corr")
+cor.matrix.all.long = cor.matrix.all %>%
+  keep(is.numeric) %>% 
+  gather()
+
+cor.matrix.all.long$key2 = rep(row.names(cor.matrix.all),(ncol(cor.matrix.all)))
+
+ggplot(cor.matrix.all.long, aes(x=key2, y=value)) + 
+  geom_col(color=I('black'), fill=I('#099DD9')) +
+  facet_wrap(~key, scales = "free_x") +
+  labs(x = "Wine Property", y = "Correlation Coefficient") +
+  ggtitle("Fig 5: Correlation of the Different Red Wine Properties") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -90, vjust = 0))
+
+```
+
+# Bivariate Analysis
+
+> The following are the main outcomes of the Red Wine dataset univarient analysis:
+
+- When looking at the correlation between the wine quality and the other 11 properties, alcohol and volatile acidity rise the main correlated properties to the wine quality.
+
+- Alcohol: strong -ve correlated with density which makes sense since alcohol is lighter in weight than the wine and higher alcohol will yiild a lighter wine in general.
+
+- Citric acid is strongly +ve correlated to the fixed acid and -ve correlated to pH (higher acidic value means lower pH).
+
+- Free sulfur dioxide is strongly +ve correlated to total sulfer dioxide.
+
+# Multivariate Plots Section
+
+In this section, we are focusing on the wine quality and its relation to different wine properties as well as the most two correlated properties (alcohol and volatile acidity).
+
+## Grouping the Wine Data by Quality
+
+In order to characterize the wine quality and relate it to the other wine properties, the wine quality is broken into three levels (low, mid, high) which corresponds to (<5, 5-6, >6) quality ratings. The wine quality is then plotted against the means and the medians of the remaining wine properties. 
+
+```{r echo=FALSE, fig.height = 12, fig.width = 12, fig.align = "center", Multivariate_Plots_1}
+
+# create a replica of the dataframe
+df.bucket = df
+
+# convert the dataframe quality numeric values into factors (3 levels: low, medium, high)
+df.bucket$quality = cut(df$quality, breaks = c(min(df$quality)*0.9999, 
+              quantile(df$quality,0.25)[[1]],
+              quantile(df$quality,0.75)[[1]]*1.0001,
+              max(df$quality)*1.0001), include.lowest = TRUE, 
+              right = FALSE, ordered_result = FALSE, labels = c("low", "medium", "high"))
+
+# Group data by the quality level and calculate the mean
+df.mean_by_qual = df.bucket[2:13] %>%
+  group_by(quality) %>%
+  summarise_all("mean")
+
+# Group data by the quality level and calculate the median
+df.median_by_qual = df.bucket[2:13] %>%
+  group_by(quality) %>%
+  summarise_all("median")
+
+# melt the grouped data into 3 columns to plot a side-by-side bar chart
+df.mean_by_qual.long = melt(df.mean_by_qual, id = c("quality"))
+df.median_by_qual.long = melt(df.median_by_qual, id = c("quality"))
+
+```
+
+When looking at the means, we can observe that, in average, wines with high ratings have the following characteristics when compared to wines with medium or low ratings:
+1. Higher fixed acidity
+2. Lower volatile acidity
+3. Higher citric acid
+4. Lower chlorides
+5. Higher sulphates
+6. Higher alcohol
+
+While looking at the correlation only revealed alcohol contents and volatile acidity as the main properties that affect rating, other properties like sulphates and citric acid can also give an indication of the wine quality.
+
+```{r echo=FALSE, fig.height = 12, fig.width = 12, fig.align = "center", Multivariate_Plots_2}
+# plot and faceting by wine property (mean)
+ggplot(df.mean_by_qual.long, aes(y=value, x=quality, color=quality, fill=quality)) + 
+  geom_bar(stat="identity") +    
+  facet_wrap(~variable, scales = "free", ncol = 4) + 
+  labs(x = "Wine Quality", y = "Mean Value") +
+  ggtitle("Fig 6: Wine Quality vs Mean Values of Each Wine Property") +
+  theme_bw()
+
+```
+
+When looking at the medians, we can observe similar conclusion to the one drawn using the means. However, the residual sugar and pH values show a slight difference such that the high rated wine has, in average, higher residual sugar and slightly lower pH.
+
+```{r echo=FALSE, fig.height = 12, fig.width = 12, fig.align = "center", Multivariate_Plots_3}
+# plot and faceting by wine property (median)
+ggplot(df.median_by_qual.long, aes(y=value, x=quality, color=quality, fill=quality)) + 
+  geom_bar(stat="identity") +    
+  facet_wrap(~variable, scales = "free", ncol = 4) + 
+    labs(x = "Wine Quality", y = "Median Value") +
+  ggtitle("Fig 7: Wine Quality vs Median Values of Each Wine Property") +
+  theme_bw()
+```
+
+## What combination of volatile acidity and alcohol receives the highest average rating?
+
+Previously, we noticed that higher quality wines are associated with higher alcohol levels however, when looking at the volatile acidity combined with alcohol levels, medium levels of alcohol can achieve high rating if combined with medium or low volatile acidity levels. It is also interesting to note that for high levels of alcohol, none of the wines has high levels of volatile acidity.
+
+```{r echo=FALSE,  fig.height = 6, fig.width = 10, fig.align = "center", Multivariate_Plots_4}
+# Make a copy of the dataframe
+df.bucket.all = df
+# rename columns to add ".bucket"
+colnames(df.bucket.all) <- paste(colnames(df.bucket.all), "bucket", sep = ".")
+# convert the dataframe numeric values into factors (3 levels: low, medium, high), except column "X" and "quality"
+df.bucket.all[2:12] = lapply(df.bucket.all[2:12], function(x) cut(x, breaks = c(min(x)*0.9999, 
+              (max(x)-min(x))/3+min(x),
+              ((max(x)-min(x))*2/3+min(x))*1.0001,
+              max(x)*1.0001), include.lowest = TRUE, right = FALSE, 
+              ordered_result = TRUE, labels = c("low", "medium", "high")))
+
+# convert the dataframe quality numeric values into factors (3 levels: low, medium, high)
+df.bucket.all$quality.bucket = cut(df.bucket.all$quality.bucket, breaks = c(min(df.bucket.all$quality.bucket)*0.9999, 
+              quantile(df.bucket.all$quality.bucket,0.25)[[1]],
+              quantile(df.bucket.all$quality.bucket,0.75)[[1]]*1.0001,
+              max(df.bucket.all$quality.bucket)*1.0001), include.lowest = TRUE, 
+              right = FALSE, ordered_result = FALSE, labels = c("low", "medium", "high"))
+
+# add the numeric columns again by merging the two dataframes on the X column
+
+df.bucket.all = merge(df.bucket.all, df, by.x = "X.bucket", by.y = "X")
+
+# Group data by the volatile acidity level and calculate the median
+df.median_quality = df.bucket.all %>%
+  group_by(volatile.acidity.bucket, alcohol.bucket) %>%
+  dplyr::summarise(quality_median = median(quality),quality_mean = mean(quality)) %>%
+  arrange(quality_median, quality_mean)
+
+#Plot data
+ggplot(aes(y = volatile.acidity.bucket, x = alcohol.bucket, fill = quality_median),
+  data = df.median_quality) +
+  geom_tile() +
+  scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(9)) +
+      labs(x = "Alcohol Level", y = "Volatile Acidity Level") +
+  ggtitle("Fig 8: Median Wine Quality for Different Alcohol and Volatile Acidity Levels") +
+  theme_bw()
+
+
+```
+## What combination of residual sugar and alcohol receives the highest average rating?
+
+While in the previous analysis the residual sugar was not a significant factor in deciding the wine quality, a combination of residual sugar and other factors can change this conclusion. For example, when looking at the combination of residual sugar and alcohol levels, wine with medium alcohol levels and medium residual sugar levels recieve higher rating in average. 
+
+IOnce more, for high levels of alcohol, none of the wines has high levels of residual sugar.
+
+```{r echo=FALSE,  fig.height = 6, fig.width = 10, fig.align = "center", Multivariate_Plots_5}
+# Group data by the volatile acidity level and calculate the median
+df.median_quality2 = df.bucket.all %>%
+  group_by(residual.sugar.bucket, alcohol.bucket) %>%
+  dplyr::summarise(quality_median = median(quality),quality_mean = mean(quality)) %>%
+  arrange(quality_median, quality_mean)
+
+#Plot data
+ggplot(aes(y = residual.sugar.bucket, x = alcohol.bucket, fill = quality_median),
+  data = df.median_quality2) +
+  geom_tile() +
+  scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
+      labs(x = "Alcohol Level", y = "Residual Sugar Level") +
+  ggtitle("Fig 9: Median Wine Quality for Different Alcohol and Residual Sugar Levels") +
+  theme_bw()
+
+
+```
+
+# Multivariate Analysis
+
+- When looking at the means, we can observe that, in average, wines with high ratings have the following characteristics when compared to wines with medium or low ratings:
+  1. Higher fixed acidity
+  2. Lower volatile acidity
+  3. Higher citric acid
+  4. Lower chlorides
+  5. Higher sulphates
+  6. Higher alcohol
+
+- Medium levels of alcohol can achieve high rating if combined with medium volatile acidity levels. -
+
+- When looking at the combination of residual sugar and alcohol levels, wine with medium alcohol levels and medium residual sugar levels receive higher rating in average. 
+
+- High levels of alcohol, none of the wines has high levels of residual sugar or volatile acidity.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+# Plot the proportions
+ggplot(quality_prop, aes(x=quality,y=proportion)) + 
+  geom_col(color=I('black'), fill=I('#099DD9')) +
+  labs(x = "Wine Quality", y = "Proportion") +
+  ggtitle("Fig 10: The Proportion of Each Red Wine Quality") +
+  theme_bw()
+```
+
+### Description One
+**Red Wine Quality**: when looking at the wine quality, most of the wine are rated at 5 or 6 (83%) while the rest are rated below 5 (4%) or above 6 (13%). This plot is important since it shows that most of the wines in the market are actually average wines and only few that receive high rating.
+
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+# plot and faceting by wine property (mean)
+ggplot(df.mean_by_qual.long, aes(y=value, x=quality, color=quality, fill=quality)) + 
+  geom_bar(stat="identity") +    
+  facet_wrap(~variable, scales = "free", ncol = 4) + 
+  labs(x = "Wine Quality", y = "Mean Value") +
+  ggtitle("Fig 11: Wine Quality vs Mean-values of Each Wine Property") +
+  theme_bw()
+```
+
+### Description Two
+When looking at the means, we can observe that, in average, wines with high ratings have the following characterestics when compared to wines with medium or low ratings:
+  1. Higher fixed acidity
+  2. Lower volatile acidity
+  3. Higher citric acid
+  4. Lower chlorides
+  5. Higher sulphates
+  6. Higher alcohol
+  
+This plot shows the ties between the different wine properties and its quality. It is important because it provides an initial insight into the main wine characteristics that wineries should pay attention to.
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+#Plot data
+ggplot(aes(y = residual.sugar.bucket, x = alcohol.bucket, fill = quality_median),
+  data = df.median_quality2) +
+  geom_tile() +
+  scale_fill_gradientn(colours = colorRampPalette(c("blue", "red"))(100)) +
+      labs(x = "Alcohol Level", y = "Residual Sugar Level") +
+  ggtitle("Fig 12: Median Wine Quality for Different Alcohol and Residual Sugar Levels") +
+  theme_bw()
+```
+
+### Description Three
+When looking at the combination of residual sugar and alcohol levels, wine with medium alcohol levels and medium residual sugar levels recieve higher rating in average. High levels of alcohol, none of the wines has high levels of residual sugar.
+
+The value of such plot, and similar plots, is in the fact that it proves that no single property dictates the wine quality. It is rather a mix of certain levels of each property that provides a high quality wine.
+
+------
+
+# Reflection
+
+> Wine quality depends on many of its properties and their interactions. At a first glance, high alcohol contents drive the high wine ratings. It was surprising that medium alcohol contents could potentiall get higher ratings if the wine has a medium level of residual sugar or volatile acidity. Future work could involve combining more than two properties in order to investigate if a specific mix of wine properties achieve high ratings. 
+
